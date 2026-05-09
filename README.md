@@ -270,3 +270,158 @@ Describe the primary users and their expectations.
 ```
 
 Use `DESIGN.md` when design consistency matters. Skip it for small scripts, libraries, or backend-only projects unless there are important product decisions to preserve.
+
+## 9. Install Docker Engine in WSL
+
+This guide installs Docker Engine directly inside Ubuntu/WSL. Do not use Docker Desktop for this setup.
+
+Run these commands inside WSL.
+
+### Add the Docker Repository
+
+```bash
+# Add Docker's official GPG key:
+sudo apt-get update
+sudo apt-get install -y ca-certificates curl
+sudo install -m 0755 -d /etc/apt/keyrings
+sudo curl -fsSL https://download.docker.com/linux/ubuntu/gpg -o /etc/apt/keyrings/docker.asc
+sudo chmod a+r /etc/apt/keyrings/docker.asc
+
+# Add the repository to Apt sources:
+echo \
+  "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu \
+  $(. /etc/os-release && echo "${UBUNTU_CODENAME:-$VERSION_CODENAME}") stable" | \
+  sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
+sudo apt-get update
+```
+
+### Install Docker Packages
+
+```bash
+sudo apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+```
+
+### Allow Docker Without `sudo`
+
+```bash
+sudo usermod -aG docker $USER
+```
+
+Close and reopen the WSL terminal so the new group membership is applied.
+
+The `docker` group effectively grants root-level access through Docker. Only add your own trusted Linux user to this group.
+
+Verify Docker:
+
+```bash
+docker --version
+docker compose version
+docker run hello-world
+```
+
+### Start Docker Automatically
+
+Use `systemd` in WSL and enable Docker as a system service.
+
+First, make sure `systemd` is enabled:
+
+```bash
+sudo nano /etc/wsl.conf
+```
+
+Add this content if it is not already present:
+
+```ini
+[boot]
+systemd=true
+```
+
+Then restart WSL from PowerShell:
+
+```powershell
+wsl --shutdown
+```
+
+Open Ubuntu/WSL again and enable Docker:
+
+```bash
+sudo systemctl enable --now docker
+```
+
+Verify the service:
+
+```bash
+systemctl status docker
+```
+
+## 10. Set Up Portainer
+
+Portainer provides a web UI for managing local Docker containers, images, volumes, and networks.
+
+Run these commands inside WSL.
+
+### Create the Portainer Volume
+
+```bash
+docker volume create portainer_data
+```
+
+### Start the Portainer Container
+
+```bash
+docker run -d \
+  --name portainer \
+  --restart=always \
+  -p 8000:8000 \
+  -p 9443:9443 \
+  -v /var/run/docker.sock:/var/run/docker.sock \
+  -v portainer_data:/data \
+  portainer/portainer-ce:lts
+```
+
+Open Portainer in your browser:
+
+```text
+https://localhost:9443
+```
+
+The browser may show a certificate warning because Portainer uses a self-signed certificate by default. Continue to the page and create the initial admin user.
+
+To check whether Portainer is running:
+
+```bash
+docker ps --filter name=portainer
+```
+
+To update Portainer later:
+
+```bash
+docker stop portainer
+docker rm portainer
+docker pull portainer/portainer-ce:lts
+docker run -d \
+  --name portainer \
+  --restart=always \
+  -p 8000:8000 \
+  -p 9443:9443 \
+  -v /var/run/docker.sock:/var/run/docker.sock \
+  -v portainer_data:/data \
+  portainer/portainer-ce:lts
+```
+
+## Other
+### Git branch in PS1
+1. Install bash-completion
+```bash
+sudo apt install bash-completion
+```
+2. Open .bashrc
+```bash
+nano ~/.bashrc
+```
+3. Copy this to the end of the file
+```bash
+source /usr/lib/git-core/git-sh-prompt
+
+export PS1='\[\033[01;32m\]\u\[\033[00m\]:\[\033[01;34m\]\w\[\033[00m\]$(__git_ps1 " \[\033[01;33m\](%s)\[\033[00m\]")\$ '
+```
